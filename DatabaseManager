@@ -1,0 +1,149 @@
+package tictactoe;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class DatabaseManager {
+    private static final String DB_URL = "jdbc:sqlite:game_data.db";
+
+    static {
+        initializeDatabase();
+    }
+
+    public static void initializeDatabase() {
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement stmt = conn.createStatement()) {
+
+            stmt.execute("CREATE TABLE IF NOT EXISTS game_history (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "timestamp TEXT," +
+                    "result TEXT" +
+                    ");");
+
+            stmt.execute("CREATE TABLE IF NOT EXISTS game_state (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "player_symbol TEXT," +
+                    "board TEXT," +
+                    "is_finished INTEGER DEFAULT 0" +
+                    ");");
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void saveGameState(char currentPlayer, String board, boolean isFinished) {
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String deleteOld = "DELETE FROM game_state WHERE is_finished = 0";
+            try (PreparedStatement del = conn.prepareStatement(deleteOld)) {
+                del.executeUpdate();
+            }
+
+            String insertSQL = "INSERT INTO game_state(player_symbol, board, is_finished) VALUES (?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+                pstmt.setString(1, String.valueOf(currentPlayer));
+                pstmt.setString(2, board);
+                pstmt.setInt(3, isFinished ? 1 : 0);
+                pstmt.executeUpdate();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static GameState loadLastGame() {
+        String query = "SELECT player_symbol, board FROM game_state WHERE is_finished = 0 ORDER BY id DESC LIMIT 1";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                GameState state = new GameState();
+                state.playerSymbol = rs.getString("player_symbol").charAt(0);
+                state.board = rs.getString("board");
+                return state;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public static void saveGameHistory(Timestamp timestamp, String result) {
+        String insertSQL = "INSERT INTO game_history(timestamp, result) VALUES (?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+
+            pstmt.setString(1, timestamp.toString());
+            pstmt.setString(2, result);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void markLastGameAsFinished() {
+        String updateSQL = "UPDATE game_state SET is_finished = 1 WHERE is_finished = 0";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(updateSQL)) {
+
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static int getNextRoundNumber() {
+        String query = "SELECT COUNT(*) AS total FROM game_history";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt("total") + 1;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return 1;
+    }
+
+    public static List<String> getGameHistories() {
+        List<String> histories = new ArrayList<>();
+        String query = "SELECT timestamp, result FROM game_history ORDER BY timestamp DESC";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                String time = rs.getString("timestamp");
+                String result = rs.getString("result");
+                histories.add(result + " at " + time);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return histories;
+    }
+
+    // Game state holder
+    public static class GameState {
+        public char playerSymbol;
+        public String board;
+    }
+}
