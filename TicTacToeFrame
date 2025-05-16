@@ -1,0 +1,162 @@
+package tictactoe;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.sql.Timestamp;
+
+public class TicTacToeFrame extends JPanel {
+    private final JButton[][] boardButtons = new JButton[3][3];
+    private final char[][] board = new char[3][3];
+    private char currentPlayer;
+    private char playerSymbol;
+    private boolean gameActive = true;
+    private final JLabel statusLabel;
+
+    private final CardLayout cardLayout;
+    private final JPanel mainPanel;
+
+    public TicTacToeFrame(CardLayout cardLayout, JPanel mainPanel) {
+        this.cardLayout = cardLayout;
+        this.mainPanel = mainPanel;
+
+        setLayout(new BorderLayout());
+
+        // Status label
+        statusLabel = new JLabel("Welcome!", SwingConstants.CENTER);
+        statusLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        add(statusLabel, BorderLayout.NORTH);
+
+        //BOARD 
+        JPanel boardPanel = new JPanel(new GridLayout(3, 3));
+        Font buttonFont = new Font("Arial", Font.BOLD, 40);
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                JButton button = new JButton();
+                button.setFont(buttonFont);
+                final int r = row, c = col;
+                button.addActionListener(e -> handleMove(r, c));
+                boardButtons[row][col] = button;
+                board[row][col] = ' ';
+                boardPanel.add(button);
+            }
+        }
+
+        add(boardPanel, BorderLayout.CENTER);
+
+        // CONTORLS DURING THE GAME
+        JPanel controlPanel = new JPanel();
+        JButton newGameButton = new JButton("New Game");
+        JButton backButton = new JButton("Back to Menu");
+
+        newGameButton.addActionListener(e -> startNewGame());
+        backButton.addActionListener(e -> cardLayout.show(mainPanel, "Start"));
+
+        controlPanel.add(newGameButton);
+        controlPanel.add(backButton);
+        add(controlPanel, BorderLayout.SOUTH);
+    }
+
+    public void setPlayerSymbol(char symbol) {
+        this.playerSymbol = symbol;
+        this.currentPlayer = symbol;
+    }
+
+    public void startNewGame() {
+        gameActive = true;
+        currentPlayer = playerSymbol;
+        statusLabel.setText("Turn: " + currentPlayer);
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                board[row][col] = ' ';
+                boardButtons[row][col].setText("");
+            }
+        }
+        saveGame(); // Save fresh state
+    }
+
+    private void handleMove(int row, int col) {
+        if (!gameActive || board[row][col] != ' ') return;
+
+        board[row][col] = currentPlayer;
+        boardButtons[row][col].setText(String.valueOf(currentPlayer));
+
+        if (checkWin(currentPlayer)) {
+            statusLabel.setText("Player " + currentPlayer + " wins!");
+            gameActive = false;
+            saveGameResult(currentPlayer);
+        } else if (isBoardFull()) {
+            statusLabel.setText("It's a draw!");
+            gameActive = false;
+            saveGameResult('D');
+        } else {
+            currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
+            statusLabel.setText("Turn: " + currentPlayer);
+            saveGame(); // Save move
+        }
+    }
+
+    private boolean checkWin(char player) {
+        for (int i = 0; i < 3; i++) {
+            if ((board[i][0] == player && board[i][1] == player && board[i][2] == player) ||
+                (board[0][i] == player && board[1][i] == player && board[2][i] == player)) {
+                return true;
+            }
+        }
+        return (board[0][0] == player && board[1][1] == player && board[2][2] == player) ||
+               (board[0][2] == player && board[1][1] == player && board[2][0] == player);
+    }
+
+    private boolean isBoardFull() {
+        for (char[] row : board)
+            for (char cell : row)
+                if (cell == ' ') return false;
+        return true;
+    }
+
+    private void saveGame() {
+        StringBuilder state = new StringBuilder();
+        for (char[] row : board)
+            for (char cell : row)
+                state.append(cell);
+        DatabaseManager.saveGameState(currentPlayer, state.toString(), false);
+    }
+
+    public boolean continueLastGame() {
+        DatabaseManager.GameState lastState = DatabaseManager.loadLastGame();
+        if (lastState == null) return false;
+
+        String boardString = lastState.board;
+        currentPlayer = lastState.playerSymbol;
+        playerSymbol = lastState.playerSymbol;
+
+        int index = 0;
+        gameActive = true;
+        statusLabel.setText("Turn: " + currentPlayer);
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                char value = boardString.charAt(index++);
+                board[row][col] = value;
+                boardButtons[row][col].setText(value == ' ' ? "" : String.valueOf(value));
+            }
+        }
+
+        return true;
+    }
+
+    private void saveGameResult(char winner) {
+        int roundNumber = DatabaseManager.getNextRoundNumber();
+        String result;
+
+        if (winner == 'D') {
+            result = "Round " + roundNumber + " - Draw";
+        } else {
+            result = "Round " + roundNumber + " - Player " + winner + " Wins";
+        }
+
+        DatabaseManager.saveGameHistory(new Timestamp(System.currentTimeMillis()), result);
+        DatabaseManager.markLastGameAsFinished();
+    }
+}
