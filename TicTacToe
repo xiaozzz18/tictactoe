@@ -1,0 +1,179 @@
+package tictactoe;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.List;
+
+public class TicTacToe {
+    public static void main(String[] args) {
+
+        SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("Tic Tac Toe");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(450, 550);
+            frame.setLocationRelativeTo(null);
+
+            CardLayout cardLayout = new CardLayout();
+            JPanel mainPanel = new JPanel(cardLayout);
+
+            // ITO ANG MGA MENU PANELS 
+            JPanel startMenuPanel = new JPanel(new BorderLayout());
+            JLabel title = new JLabel("Welcome to ANGEL vs DEVIL!", JLabel.CENTER);
+            title.setFont(new Font("Serif", Font.BOLD, 24));
+
+            JPanel buttonPanel = new JPanel(new GridLayout(5, 1, 10, 10));
+            JButton newGameButton = new JButton("New Game");
+            JButton continueButton = new JButton("Continue Last Game");
+            JButton instructionsButton = new JButton("Instructions");
+            JButton viewHistoryButton = new JButton("View History");
+            JButton exitButton = new JButton("Exit");
+
+            buttonPanel.add(newGameButton);
+            buttonPanel.add(continueButton);
+            buttonPanel.add(instructionsButton);
+            buttonPanel.add(viewHistoryButton);
+            buttonPanel.add(exitButton);
+
+            startMenuPanel.add(title, BorderLayout.NORTH);
+            startMenuPanel.add(buttonPanel, BorderLayout.CENTER);
+
+            // STORY PLOT
+            JPanel storyPanel = new JPanel(new BorderLayout());
+            JTextArea storyText = new JTextArea();
+            storyText.setEditable(false);
+            storyText.setLineWrap(true);
+            storyText.setWrapStyleWord(true);
+            storyText.setFont(new Font("Serif", Font.PLAIN, 16));
+            storyText.setMargin(new Insets(15, 15, 15, 15));
+
+            String[] storyParts = {
+                "Long ago, the realms of Angels and Devils lived in uneasy peace, held together by mutual respect and balance. This fragile truce was broken with the discovery of the PRIMOGEM a powerful artifact that could grant eternal dominance to whoever possessed it.",
+                "Instead of waging war, both sides agreed to settle the conflict through a clever game of Tic-Tac-Toe. Each realm chose a champion: AZRAEL, a calm and wise Angel; and AARON, a cunning and manipulative Devil. Their matches were more than games—they were battles of minds, with every move carrying immense weight.",
+                "As the game continued, the PRIMOGEMS'S power began influencing the board, turning it into a magical battleground where light and shadow clashed. Meanwhile, tension grew in both realms. Some Angels wanted to destroy the PRIMOGEMS, while some Devils plotted to overthrow AARON and take its power.",
+                "The final match would decide everything—not just who controls the Primogem, but the future of both realms, the balance between good and evil, and even reality itself. In this seemingly simple game, the fate of the cosmos hangs in the balance.",
+                "Are you ready to choose your side?"
+            };
+
+            JButton nextStoryButton = new JButton("Next");
+            final int[] storyIndex = {0};
+            storyText.setText(storyParts[storyIndex[0]]);
+
+            nextStoryButton.addActionListener(e -> {
+                storyIndex[0]++;
+                if (storyIndex[0] < storyParts.length) {
+                    storyText.setText(storyParts[storyIndex[0]]);
+                } else {
+                    cardLayout.show(mainPanel, "Choice");
+                }
+            });
+
+            storyPanel.add(new JScrollPane(storyText), BorderLayout.CENTER);
+            storyPanel.add(nextStoryButton, BorderLayout.SOUTH);
+
+            //CHOICES NG SIDE OF THE PLAYER
+            JPanel choicePanel = new JPanel(new BorderLayout());
+            JLabel chooseLabel = new JLabel("Choose your side: X or O", JLabel.CENTER);
+            chooseLabel.setFont(new Font("Serif", Font.BOLD, 18));
+            JButton xButton = new JButton("X");
+            JButton oButton = new JButton("O");
+            JPanel choiceButtons = new JPanel();
+            choiceButtons.add(xButton);
+            choiceButtons.add(oButton);
+            choicePanel.add(chooseLabel, BorderLayout.NORTH);
+            choicePanel.add(choiceButtons, BorderLayout.CENTER);
+
+            // GAME PANEL
+            TicTacToeFrame gameFrame = new TicTacToeFrame(cardLayout, mainPanel);
+
+            // INSTRUCTION DETAILS O PANELS
+            JTextArea instructionsText = new JTextArea(
+                "Instructions:\n\n" +
+                "- The game is played on a 3x3 grid.\n" +
+                "- Player X and Player O take turns marking empty squares.\n" +
+                "- The first to get 3 in a row (horizontal, vertical, or diagonal) wins.\n" +
+                "- If all squares are filled and no one wins, the game ends in a draw."
+            );
+            instructionsText.setEditable(false);
+            instructionsText.setLineWrap(true);
+            instructionsText.setWrapStyleWord(true);
+            instructionsText.setMargin(new Insets(15, 15, 15, 15));
+            JButton backFromInstructions = new JButton("Back to Menu");
+            backFromInstructions.addActionListener(e -> cardLayout.show(mainPanel, "Start"));
+
+            JPanel instructionsPanel = new JPanel(new BorderLayout());
+            instructionsPanel.add(new JScrollPane(instructionsText), BorderLayout.CENTER);
+            instructionsPanel.add(backFromInstructions, BorderLayout.SOUTH);
+
+            // HISTORY PANEL
+            JTextArea historyText = new JTextArea();
+            historyText.setEditable(false);
+            historyText.setMargin(new Insets(15, 15, 15, 15));
+            JButton backFromHistory = new JButton("Back to Menu");
+            backFromHistory.addActionListener(e -> cardLayout.show(mainPanel, "Start"));
+
+            JPanel historyPanel = new JPanel(new BorderLayout());
+            historyPanel.add(new JScrollPane(historyText), BorderLayout.CENTER);
+            historyPanel.add(backFromHistory, BorderLayout.SOUTH);
+
+            // MGA BUTTONS
+            newGameButton.addActionListener(e -> {
+                storyIndex[0] = 0;
+                storyText.setText(storyParts[0]);
+                cardLayout.show(mainPanel, "Story");
+            });
+
+            continueButton.addActionListener(e -> {
+                boolean hasGame = gameFrame.continueLastGame();
+                if (hasGame) {
+                    cardLayout.show(mainPanel, "Game");
+                } else {
+                    JOptionPane.showMessageDialog(frame,
+                            "No saved game found. Please start a new game.",
+                            "No Game", JOptionPane.INFORMATION_MESSAGE);
+                }
+            });
+
+            instructionsButton.addActionListener(e -> cardLayout.show(mainPanel, "Instructions"));
+
+            viewHistoryButton.addActionListener(e -> {
+                List<String> histories = DatabaseManager.getGameHistories();
+                if (histories.isEmpty()) {
+                    historyText.setText("No game history available.");
+                } else {
+                    StringBuilder sb = new StringBuilder();
+                    for (String record : histories) {
+                        sb.append(record).append("\n");
+                    }
+                    historyText.setText(sb.toString());
+                }
+                cardLayout.show(mainPanel, "History");
+            });
+
+            exitButton.addActionListener(e -> System.exit(0));
+
+            xButton.addActionListener(e -> {
+                gameFrame.setPlayerSymbol('X');
+                gameFrame.startNewGame();
+                cardLayout.show(mainPanel, "Game");
+            });
+
+            oButton.addActionListener(e -> {
+                gameFrame.setPlayerSymbol('O');
+                gameFrame.startNewGame();
+                cardLayout.show(mainPanel, "Game");
+            });
+
+            //PANELS TO THE MAIN
+            mainPanel.add(startMenuPanel, "Start");
+            mainPanel.add(storyPanel, "Story");
+            mainPanel.add(choicePanel, "Choice");
+            mainPanel.add(gameFrame, "Game");
+            mainPanel.add(instructionsPanel, "Instructions");
+            mainPanel.add(historyPanel, "History");
+
+            frame.setContentPane(mainPanel);
+            frame.setVisible(true);
+            cardLayout.show(mainPanel, "Start");
+        });
+    }
+}
